@@ -15,7 +15,7 @@ A faithful reproduction of the iconic Matrix "code rain" built with vanilla JS a
 
 ## Milestones
 
-- [x] **Milestone 1: CanvasTexture 2D rain on a flat plane** ⏳ *(In Progress)*
+- [-] **Milestone 1: CanvasTexture 2D rain on a flat plane** ⏳ *(In Progress)*
 - [ ] **Milestone 2:** InstancedMesh true 3D rain columns
 - [ ] **Milestone 3:** First-person WASD + mouse-look camera
 - [ ] **Milestone 4:** Devanagari/Sanskrit character set (there is a Mahabharata concept I have in mind for Hindu Mythology, something the Wachowskis' were fond of)
@@ -29,4 +29,4 @@ A faithful reproduction of the iconic Matrix "code rain" built with vanilla JS a
 - Strict ES Modules usage (import/export).
 - Fully documented via JSDoc.
 
-## Inspiration and Lots of Learning from the OG "Architect" - (https://github.com/Rezmason/matrix)[rezmason]
+## Inspiration and Lots of Learning from the OG "Architect" - [rezmason] (https://github.com/Rezmason/matrix)
