@@ -1,4 +1,4 @@
-let isEnabled = true;
+let isEnabled = false;
 const debugData = new Map();
 const logs = [];
 const MAX_LOGS = 10;

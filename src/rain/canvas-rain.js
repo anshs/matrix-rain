@@ -79,7 +79,7 @@ export function setupRain() {
       const charCode = 0x30A0 + Math.floor(Math.random() * 96);
       const text = String.fromCharCode(charCode);
 
-      const x = i * columnSpacing + columnSpacing / 2;
+      const x = i * columnSpacing;
       const y = columnY[i];
 
       ctx.fillText(text, x, y);
@@ -120,7 +120,7 @@ export function setupRain() {
 
     columnY = new Float32Array(numColumns);
     columnSpeed = new Float32Array(numColumns);
-    
+
     // Preserve existing raindrops to avoid a visual reset
     for (let i = 0; i < numColumns; i++) {
       if (i < oldNumColumns) {

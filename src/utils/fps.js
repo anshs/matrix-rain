@@ -22,6 +22,7 @@ export function setupFPS() {
   fpsDiv.style.fontSize = '14px';
   fpsDiv.style.pointerEvents = 'none';
   fpsDiv.style.zIndex = '9999';
+  fpsDiv.style.visibility = 'hidden';
   fpsDiv.textContent = 'FPS: 0';
   document.body.appendChild(fpsDiv);
   lastTime = performance.now();

@@ -63,9 +63,82 @@ function animate(now) {
 // Start loop
 animate(performance.now());
 
-/* ========= DEBUG ========= */
-// Debug initialization
+/* ========= KEYBOARD CONTROLS ========= */
+let debugVisible = false;
+let distractionsHidden = false;
+
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'd' || e.key === 'D') toggleDebug();
+  const key = e.key.toLowerCase();
+  
+  if (key === 'd' && !distractionsHidden) {
+    debugVisible = !debugVisible;
+    toggleDebug(debugVisible);
+    const fpsDiv = document.getElementById('fps-counter');
+    if (fpsDiv) fpsDiv.style.visibility = debugVisible ? 'visible' : 'hidden';
+  }
+  
+  if (key === 'f') {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen();
+    }
+  }
+  
+  if (key === 'h') {
+    distractionsHidden = !distractionsHidden;
+    const footer = document.querySelector('.footer');
+    const fpsDiv = document.getElementById('fps-counter');
+    
+    if (distractionsHidden) {
+      if (footer) footer.style.visibility = 'hidden';
+      toggleDebug(false);
+      if (fpsDiv) fpsDiv.style.visibility = 'hidden';
+    } else {
+      if (footer) footer.style.visibility = 'visible';
+      toggleDebug(debugVisible);
+      if (fpsDiv) fpsDiv.style.visibility = debugVisible ? 'visible' : 'hidden';
+    }
+  }
+  
+  if (e.key === 'Escape') {
+    const helpModal = document.getElementById('help-modal');
+    if (helpModal && !helpModal.classList.contains('hidden')) {
+      helpModal.classList.add('hidden');
+    }
+  }
 });
-debug('Press D [X]');
+
+/* ========= UI & MODAL LOGIC ========= */
+const DEVLOG_URL = '#'; // Update this to actual devlog URL when ready
+
+const devlogFooter = document.getElementById('devlog-link-footer');
+const devlogModal = document.getElementById('devlog-link-modal');
+if (devlogFooter) devlogFooter.href = DEVLOG_URL;
+if (devlogModal) devlogModal.href = DEVLOG_URL;
+
+const helpModal = document.getElementById('help-modal');
+const helpToggle = document.getElementById('help-toggle');
+const helpModalClose = document.getElementById('help-modal-close');
+
+if (helpToggle && helpModal) {
+  helpToggle.addEventListener('click', (e) => {
+    e.preventDefault();
+    helpModal.classList.toggle('hidden');
+  });
+}
+
+if (helpModalClose && helpModal) {
+  helpModalClose.addEventListener('click', () => {
+    helpModal.classList.add('hidden');
+  });
+}
+
+// Close on backdrop click
+if (helpModal) {
+  helpModal.addEventListener('click', (e) => {
+    if (e.target === helpModal) {
+      helpModal.classList.add('hidden');
+    }
+  });
+}
