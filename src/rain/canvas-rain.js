@@ -15,18 +15,14 @@ const TRAIL_LENGTH = 20; // Length of the trail in characters
 const TRAIL_HEAD_COLOR = '#8DFF8D'; // Bright neon green for the leading character
 const TRAIL_START_COLOR = { r: 0, g: 255, b: 0, a: 1 }; // Gradient start
 const TRAIL_END_COLOR = { r: 0, g: 64, b: 0, a: 0 };    // Gradient end
-const GLOW_COLOR = '#0F0';
-const GLOW_MAX_BLUR = 10;
 
 // Pre-computed Trail Characteristics
 const trailColors = new Array(TRAIL_LENGTH);
-const trailGlows = new Float32Array(TRAIL_LENGTH);
 
 function initTrailStyles() {
   for (let j = 0; j < TRAIL_LENGTH; j++) {
     if (j === 0) {
       trailColors[j] = TRAIL_HEAD_COLOR;
-      trailGlows[j] = GLOW_MAX_BLUR * 1.5; // Head glows brighter
     } else {
       const ratio = j / TRAIL_LENGTH;
       // Linear interpolation for color
@@ -35,7 +31,6 @@ function initTrailStyles() {
       const b = Math.round(TRAIL_START_COLOR.b + (TRAIL_END_COLOR.b - TRAIL_START_COLOR.b) * ratio);
       const a = TRAIL_START_COLOR.a + (TRAIL_END_COLOR.a - TRAIL_START_COLOR.a) * ratio;
       trailColors[j] = `rgba(${r}, ${g}, ${b}, ${a})`;
-      trailGlows[j] = GLOW_MAX_BLUR * (1 - ratio);
     }
   }
 }
@@ -137,17 +132,15 @@ export function setupRain() {
 
     // Clear canvas for streaks
     ctx.fillStyle = '#000';
-    ctx.shadowBlur = 0; // Disable shadow for clear
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     ctx.font = `${FONT_SIZE}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = GLOW_COLOR;
 
     const deltaSeconds = deltaTime / 1000;
 
-    // Draw streaks
+    // 1. Advance all streaks
     for (let i = 0; i < numColumns; i++) {
       streakRow[i] += streakSpeed[i] * deltaSeconds;
 
@@ -156,11 +149,14 @@ export function setupRain() {
         streakRow[i] = -Math.random() * TRAIL_LENGTH;
         streakSpeed[i] = Math.random() * 15 + 10;
       }
+    }
 
-      const headRow = Math.floor(streakRow[i]);
+    // 2. Draw the trails by layer to minimize expensive canvas state changes
+    for (let j = 0; j < TRAIL_LENGTH; j++) {
+      ctx.fillStyle = trailColors[j];
 
-      // Draw the trail
-      for (let j = 0; j < TRAIL_LENGTH; j++) {
+      for (let i = 0; i < numColumns; i++) {
+        const headRow = Math.floor(streakRow[i]);
         const row = headRow - j;
 
         if (row >= 0 && row < numRows) {
@@ -170,8 +166,6 @@ export function setupRain() {
           const x = i * charWidth + (charWidth / 2);
           const y = row * charHeight + (charHeight / 2);
 
-          ctx.fillStyle = trailColors[j];
-          ctx.shadowBlur = trailGlows[j];
           ctx.fillText(text, x, y);
         }
       }
@@ -190,7 +184,6 @@ export function setupRain() {
 
     // Canvas context state is reset on resize, re-apply initial clear
     ctx.fillStyle = '#000';
-    ctx.shadowBlur = 0;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // Recalculate grid dimensions on resize
