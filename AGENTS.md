@@ -26,8 +26,8 @@ Learning project — code must be readable and educational, not just functional.
 - Never use `new THREE.Vector3()` inside requestAnimationFrame
 
 ## Current Milestone
-Milestone 1: CanvasTexture 2D rain on a flat plane — IN PROGRESS
-
+Milestone 1: CanvasTexture 2D rain on a flat plane — COMPLETED
+Milestone 2: InstancedMesh true 3D rain columns — IN PROGRESS
 ## Code Style
 - ES Modules (import/export), no CommonJS
 - JSDoc comments on every exported function

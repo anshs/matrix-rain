@@ -63,9 +63,33 @@ function animate(now) {
 // Start loop
 animate(performance.now());
 
-/* ========= KEYBOARD CONTROLS ========= */
+/* ========= UI & CONTROLS LOGIC ========= */
 let debugVisible = false;
 let distractionsHidden = false;
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function toggleHUD() {
+  distractionsHidden = !distractionsHidden;
+  const footer = document.querySelector('.footer');
+  const fpsDiv = document.getElementById('fps-counter');
+  
+  if (distractionsHidden) {
+    if (footer) footer.style.visibility = 'hidden';
+    toggleDebug(false);
+    if (fpsDiv) fpsDiv.style.visibility = 'hidden';
+  } else {
+    if (footer) footer.style.visibility = 'visible';
+    toggleDebug(debugVisible);
+    if (fpsDiv) fpsDiv.style.visibility = debugVisible ? 'visible' : 'hidden';
+  }
+}
 
 window.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
@@ -77,29 +101,8 @@ window.addEventListener('keydown', (e) => {
     if (fpsDiv) fpsDiv.style.visibility = debugVisible ? 'visible' : 'hidden';
   }
   
-  if (key === 'f') {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen();
-    }
-  }
-  
-  if (key === 'h') {
-    distractionsHidden = !distractionsHidden;
-    const footer = document.querySelector('.footer');
-    const fpsDiv = document.getElementById('fps-counter');
-    
-    if (distractionsHidden) {
-      if (footer) footer.style.visibility = 'hidden';
-      toggleDebug(false);
-      if (fpsDiv) fpsDiv.style.visibility = 'hidden';
-    } else {
-      if (footer) footer.style.visibility = 'visible';
-      toggleDebug(debugVisible);
-      if (fpsDiv) fpsDiv.style.visibility = debugVisible ? 'visible' : 'hidden';
-    }
-  }
+  if (key === 'f') toggleFullscreen();
+  if (key === 'h') toggleHUD();
   
   if (e.key === 'Escape') {
     const helpModal = document.getElementById('help-modal');
@@ -108,6 +111,34 @@ window.addEventListener('keydown', (e) => {
     }
   }
 });
+
+/* ========= MOBILE TOUCH GESTURES ========= */
+let lastTapTime = 0;
+let longPressTimer;
+
+window.addEventListener('touchstart', (e) => {
+  // Ignore touches on active UI elements to prevent breaking links/buttons
+  if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.help-modal-content')) return;
+
+  const currentTime = new Date().getTime();
+  const tapLength = currentTime - lastTapTime;
+  
+  // Double Tap detection (under 300ms)
+  if (tapLength < 300 && tapLength > 0) {
+    toggleFullscreen();
+    clearTimeout(longPressTimer);
+    e.preventDefault();
+  } else {
+    // Long Press detection (800ms hold)
+    longPressTimer = setTimeout(() => {
+      toggleHUD();
+    }, 800);
+  }
+  lastTapTime = currentTime;
+});
+
+window.addEventListener('touchend', () => clearTimeout(longPressTimer));
+window.addEventListener('touchmove', () => clearTimeout(longPressTimer));
 
 /* ========= UI & MODAL LOGIC ========= */
 const DEVLOG_URL = '#'; // Update this to actual devlog URL when ready

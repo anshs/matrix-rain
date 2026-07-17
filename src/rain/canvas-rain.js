@@ -1,40 +1,27 @@
 import * as THREE from 'three';
 import { getAspect } from '../utils/viewport.js';
+import { getIndex2D } from '../utils/array.js';
+import { ACTIVE_CHARSET } from './characters.js';
+import { createGlyphAtlas } from './glyph-atlas.js';
 
 // Base internal resolution for the canvas
 const CANVAS_BASE_HEIGHT = 1024;
 const FONT_SIZE = 32;
 
-// Padding between rows (percentage of character height)
+// Padding and spacing (percentage of character dimensions, e.g., 0.2 means +20%, -0.2 means -20%)
 const ROW_PADDING_PERCENTAGE = 0.2;
+const COLUMN_SPACING_PERCENTAGE = -0.15; // Negative value squeezes columns closer together
+
 // Time in milliseconds for each character to update on average
 const CHAR_UPDATE_INTERVAL_MS = 500;
 
 // === Streak Configuration ===
-const TRAIL_LENGTH = 20; // Length of the trail in characters
-const TRAIL_HEAD_COLOR = '#8DFF8D'; // Bright neon green for the leading character
-const TRAIL_START_COLOR = { r: 0, g: 255, b: 0, a: 1 }; // Gradient start
+const TRAIL_LENGTH = 30; // Length of the trail in characters
+const TRAIL_HEAD_COLOR = '#d0ff00ff'; // Bright neon green for the leading character
+const TRAIL_START_COLOR = { r: 50, g: 255, b: 0, a: 1 }; // Gradient start
 const TRAIL_END_COLOR = { r: 0, g: 64, b: 0, a: 0 };    // Gradient end
-
-// Pre-computed Trail Characteristics
-const trailColors = new Array(TRAIL_LENGTH);
-
-function initTrailStyles() {
-  for (let j = 0; j < TRAIL_LENGTH; j++) {
-    if (j === 0) {
-      trailColors[j] = TRAIL_HEAD_COLOR;
-    } else {
-      const ratio = j / TRAIL_LENGTH;
-      // Linear interpolation for color
-      const r = Math.round(TRAIL_START_COLOR.r + (TRAIL_END_COLOR.r - TRAIL_START_COLOR.r) * ratio);
-      const g = Math.round(TRAIL_START_COLOR.g + (TRAIL_END_COLOR.g - TRAIL_START_COLOR.g) * ratio);
-      const b = Math.round(TRAIL_START_COLOR.b + (TRAIL_END_COLOR.b - TRAIL_START_COLOR.b) * ratio);
-      const a = TRAIL_START_COLOR.a + (TRAIL_END_COLOR.a - TRAIL_START_COLOR.a) * ratio;
-      trailColors[j] = `rgba(${r}, ${g}, ${b}, ${a})`;
-    }
-  }
-}
-initTrailStyles();
+const GLOW_COLOR = '#0F0';
+const GLOW_MAX_BLUR = 5; // Increased blur for better CRT effect
 
 // Width and Height based on aspect ratio of the screen/window
 let canvasWidth = Math.floor(CANVAS_BASE_HEIGHT * getAspect());
@@ -42,7 +29,11 @@ let canvasHeight = CANVAS_BASE_HEIGHT;
 
 // Grid configuration
 let charWidth, charHeight, numColumns, numRows, totalCells;
-let charCodes; // 1D typed array representing the 2D grid
+let charIndices; // 1D typed array storing indices to ACTIVE_CHARSET
+
+// Atlas configuration
+let atlasCanvas, getSourceCoords;
+let atlasCellWidth, atlasCellHeight;
 
 // Streaks state
 let streakRow; // Float32Array: Current fractional row position of the streak head
@@ -54,7 +45,7 @@ function initStreaks() {
   for (let i = 0; i < numColumns; i++) {
     // Start at random position, some offscreen to stagger them
     streakRow[i] = Math.random() * (numRows + TRAIL_LENGTH * 2) - TRAIL_LENGTH;
-    streakSpeed[i] = Math.random() * 15 + 10; // Speed between 10 and 25 rows per second
+    streakSpeed[i] = Math.random() * 20 + 15; // Speed between 10 and 25 rows per second
   }
 }
 
@@ -68,29 +59,49 @@ export function setupRain() {
   canvas.height = canvasHeight;
   const ctx = canvas.getContext('2d', { alpha: false }); // alpha: false for slight optimization
 
-  // Set font before measuring text metrics
+  // 1. Measure Font Metrics
   ctx.font = `${FONT_SIZE}px monospace`;
+  // Measure a typical wide character from our set to determine grid spacing
+  const metrics = ctx.measureText(ACTIVE_CHARSET.includes('ア') ? 'ア' : ACTIVE_CHARSET[0]);
 
-  // Measure font metrics to derive grid size
-  const metrics = ctx.measureText('ア'); // Measure a typical full-width character
-  // TODO: Remove hardcoding and extract values by sampling the selected character set or font
-  charWidth = metrics.width;
+  // The effective logical size of a cell in the grid
+  // Using Math.ceil to ensure integers (prevents layout floating-point drift)
+  charWidth = Math.ceil(metrics.width * (1 + COLUMN_SPACING_PERCENTAGE));
+  const rawCharHeight = Math.ceil((metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) || FONT_SIZE);
+  charHeight = Math.ceil(rawCharHeight * (1 + ROW_PADDING_PERCENTAGE));
 
-  // Use exact bounding box for height, and apply padding
-  const rawCharHeight = (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) || FONT_SIZE;
-  charHeight = rawCharHeight * (1 + ROW_PADDING_PERCENTAGE);
+  // 2. Generate Glyph Atlas
+  // The atlas cells need to be physically larger than the character to fit the glow without clipping
+  // Base it on the UN-squeezed metrics.width so we don't clip horizontal strokes when squeezed
+  atlasCellWidth = Math.ceil(metrics.width + (GLOW_MAX_BLUR * 2) + 4);
+  atlasCellHeight = Math.ceil(rawCharHeight + (GLOW_MAX_BLUR * 2) + 4);
 
-  // Calculate grid dimensions
+  const atlasData = createGlyphAtlas(
+    ACTIVE_CHARSET,
+    atlasCellWidth,
+    atlasCellHeight,
+    FONT_SIZE,
+    TRAIL_LENGTH,
+    TRAIL_HEAD_COLOR,
+    TRAIL_START_COLOR,
+    TRAIL_END_COLOR,
+    GLOW_COLOR,
+    GLOW_MAX_BLUR
+  );
+  atlasCanvas = atlasData.atlasCanvas;
+  getSourceCoords = atlasData.getSourceCoords;
+
+  // 3. Calculate grid dimensions
   numColumns = Math.max(1, Math.ceil(canvasWidth / charWidth));
   numRows = Math.max(1, Math.ceil(canvasHeight / charHeight));
   totalCells = numColumns * numRows;
 
-  // Allocate arrays
-  charCodes = new Uint16Array(totalCells);
+  // 4. Allocate state arrays
+  charIndices = new Uint16Array(totalCells);
   initStreaks();
 
   for (let i = 0; i < totalCells; i++) {
-    charCodes[i] = 0x30A0 + Math.floor(Math.random() * 96);
+    charIndices[i] = Math.floor(Math.random() * ACTIVE_CHARSET.length);
   }
 
   // Draw initial black background
@@ -126,17 +137,13 @@ export function setupRain() {
     // Update the underlying grid randomly
     for (let i = 0; i < totalCells; i++) {
       if (Math.random() < changeProbability) {
-        charCodes[i] = 0x30A0 + Math.floor(Math.random() * 96);
+        charIndices[i] = Math.floor(Math.random() * ACTIVE_CHARSET.length);
       }
     }
 
     // Clear canvas for streaks
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-    ctx.font = `${FONT_SIZE}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
 
     const deltaSeconds = deltaTime / 1000;
 
@@ -151,22 +158,35 @@ export function setupRain() {
       }
     }
 
-    // 2. Draw the trails by layer to minimize expensive canvas state changes
+    // 2. Draw the trails by layer using the ultra-fast Glyph Atlas
     for (let j = 0; j < TRAIL_LENGTH; j++) {
-      ctx.fillStyle = trailColors[j];
-
       for (let i = 0; i < numColumns; i++) {
         const headRow = Math.floor(streakRow[i]);
         const row = headRow - j;
 
         if (row >= 0 && row < numRows) {
-          const charIndex = row * numColumns + i;
-          const text = String.fromCharCode(charCodes[charIndex]);
+          // Use our high-performance inline array utility
+          const cellIndex = getIndex2D(i, row, numColumns);
+          const charIndex = charIndices[cellIndex];
 
-          const x = i * charWidth + (charWidth / 2);
-          const y = row * charHeight + (charHeight / 2);
+          // Get pre-calculated source coordinates from the atlas
+          const { sx, sy } = getSourceCoords(charIndex, j);
 
-          ctx.fillText(text, x, y);
+          // Calculate destination center
+          const cx = i * charWidth + (charWidth / 2);
+          const cy = row * charHeight + (charHeight / 2);
+
+          // Calculate destination top-left based on padded atlas cell size
+          // Math.round snaps the draw coordinates to exact integers, completely eliminating sub-pixel jitter!
+          const dx = Math.round(cx - (atlasCellWidth / 2));
+          const dy = Math.round(cy - (atlasCellHeight / 2));
+
+          // Hardware-accelerated pixel copy (Bit Blit)
+          ctx.drawImage(
+            atlasCanvas,
+            sx, sy, atlasCellWidth, atlasCellHeight, // Source
+            dx, dy, atlasCellWidth, atlasCellHeight  // Destination
+          );
         }
       }
     }
@@ -182,7 +202,6 @@ export function setupRain() {
     canvasWidth = Math.floor(CANVAS_BASE_HEIGHT * newAspect);
     canvas.width = canvasWidth;
 
-    // Canvas context state is reset on resize, re-apply initial clear
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
@@ -191,11 +210,11 @@ export function setupRain() {
     numRows = Math.max(1, Math.ceil(canvasHeight / charHeight));
     totalCells = numColumns * numRows;
 
-    charCodes = new Uint16Array(totalCells);
+    charIndices = new Uint16Array(totalCells);
     for (let i = 0; i < totalCells; i++) {
-      charCodes[i] = 0x30A0 + Math.floor(Math.random() * 96);
+      charIndices[i] = Math.floor(Math.random() * ACTIVE_CHARSET.length);
     }
-    
+
     initStreaks();
 
     // Force WebGL to re-allocate the texture for the new canvas size
