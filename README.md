@@ -1,8 +1,10 @@
 # Matrix Rain (using Three.js)
 
+[]
+
 >“What is real? How do you define real?” — Morpheus, The Matrix
 
-An "almost" faithful reproduction of the iconic Matrix "code rain" built with vanilla JS and Three.js. AI used only for learning and scaffolding the project, rest of the code written manually. I also journal my learning process on my blog. A passion project of mine that I wanted to do since I was 14.
+An "almost" faithful reproduction of the iconic Matrix "code rain" built with vanilla JS and Three.js. AI used only for learning and scaffolding the project, rest of the code written manually. I also journal my learning process [on my blog](https://anshulsharma.org/posts/matrix-rain/). A passion project of mine that I wanted to do since I was 14.
 
 ## Project Goals
 - Stay true to original aesthetic as much as possible and only later experiment with new variations

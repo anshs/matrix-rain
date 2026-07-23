@@ -1,17 +1,26 @@
 import * as THREE from 'three';
-import { setupRain } from './rain/canvas-rain.js';
+import { setupRain3D } from './rain/matrix-3d.js';
 import { setupFPS, updateFPS } from './utils/fps.js';
 import { debug, toggleDebug } from './utils/debug.js';
 import { getAspect, onResize } from './utils/viewport.js';
+import { enableFrustumDebug, disableFrustumDebug, updateFrustumDebug } from './utils/debug-frustum.js';
 import './style.css';
 
 // Scene, Camera, Renderer Setup
 const scene = new THREE.Scene();
 
 // PerspectiveCamera: fov, aspect, near, far
-const camera = new THREE.PerspectiveCamera(75, getAspect(), 1, 10000);
+const camera = new THREE.PerspectiveCamera(30, getAspect(), 5, 75);
 // Move camera back to see the plane
-camera.position.z = 15;
+camera.position.z = 60;
+
+// God Mode Camera
+const godCamera = new THREE.PerspectiveCamera(75, getAspect(), 1, 5000);
+// Elevated and pulled back to see the whole scene
+godCamera.position.set(0, 80, 120);
+godCamera.lookAt(0, 0, 0);
+
+let activeCamera = camera;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -21,16 +30,18 @@ document.body.appendChild(renderer.domElement);
 // Setup FPS counter
 setupFPS();
 
-// Setup Matrix Rain
-const { mesh, update: updateRain, resize: resizeRain } = setupRain();
-scene.add(mesh);
+// Setup Matrix Rain 3D
+// Always pass the main camera so the grid logic is tied to what the main camera sees
+const { update: updateRain, resize: resizeRain, getMesh } = setupRain3D(scene, camera);
 
 // Handle Window Resize via viewport source of truth
 onResize((newAspect) => {
   camera.aspect = newAspect;
   camera.updateProjectionMatrix();
+  godCamera.aspect = newAspect;
+  godCamera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  resizeRain(newAspect);
+  resizeRain(camera);
 });
 
 // Render Loop
@@ -46,7 +57,19 @@ function animate(now) {
   updateFPS(now);
 
   // Update Rain Canvas
-  updateRain(deltaTime);
+  updateRain(deltaTime, camera);
+
+  // Camera Animation: 60-degree arc right to left
+  const radius = 20;
+  // Sin wave oscillates between -1 and 1. Multiply by Math.PI / 12 (15 degrees) for a 30 degree total arc
+  const angle = Math.sin(now * 0.0002) * (Math.PI / 12);
+  camera.position.x = Math.sin(angle) * radius;
+  camera.position.z = Math.cos(angle) * radius;
+  // Keep camera slightly elevated
+  camera.position.y = 0;
+  camera.lookAt(0, 0, 0);
+
+  updateFrustumDebug();
 
   debug('Frame Time', deltaTime.toFixed(2) + ' ms');
   debug('Draw Calls', renderer.info.render.calls);
@@ -57,7 +80,7 @@ function animate(now) {
     debug('Memory (MB)', (performance.memory.usedJSHeapSize / 1048576).toFixed(1));
   }
 
-  renderer.render(scene, camera);
+  renderer.render(scene, activeCamera);
 }
 
 // Start loop
@@ -69,7 +92,7 @@ let distractionsHidden = false;
 
 function toggleFullscreen() {
   if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
+    document.documentElement.requestFullscreen().catch(() => { });
   } else {
     document.exitFullscreen();
   }
@@ -79,7 +102,7 @@ function toggleHUD() {
   distractionsHidden = !distractionsHidden;
   const footer = document.querySelector('.footer');
   const fpsDiv = document.getElementById('fps-counter');
-  
+
   if (distractionsHidden) {
     if (footer) footer.style.visibility = 'hidden';
     toggleDebug(false);
@@ -93,17 +116,27 @@ function toggleHUD() {
 
 window.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
-  
+
   if (key === 'd' && !distractionsHidden) {
     debugVisible = !debugVisible;
     toggleDebug(debugVisible);
     const fpsDiv = document.getElementById('fps-counter');
     if (fpsDiv) fpsDiv.style.visibility = debugVisible ? 'visible' : 'hidden';
+
+    if (debugVisible) {
+      enableFrustumDebug(scene, camera, getMesh());
+    } else {
+      disableFrustumDebug(scene);
+    }
   }
-  
+
+  if (key === 'g' && !distractionsHidden) {
+    activeCamera = activeCamera === camera ? godCamera : camera;
+  }
+
   if (key === 'f') toggleFullscreen();
   if (key === 'h') toggleHUD();
-  
+
   if (e.key === 'Escape') {
     const helpModal = document.getElementById('help-modal');
     if (helpModal && !helpModal.classList.contains('hidden')) {
@@ -122,7 +155,7 @@ window.addEventListener('touchstart', (e) => {
 
   const currentTime = new Date().getTime();
   const tapLength = currentTime - lastTapTime;
-  
+
   // Double Tap detection (under 300ms)
   if (tapLength < 300 && tapLength > 0) {
     toggleFullscreen();
