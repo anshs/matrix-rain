@@ -4,13 +4,14 @@ import { setupFPS, updateFPS } from './utils/fps.js';
 import { debug, toggleDebug } from './utils/debug.js';
 import { getAspect, onResize } from './utils/viewport.js';
 import { enableFrustumDebug, disableFrustumDebug, updateFrustumDebug } from './utils/debug-frustum.js';
+import { setupFPSCamera, updateFPSCamera } from './utils/fps-camera.js';
 import './style.css';
 
 // Scene, Camera, Renderer Setup
 const scene = new THREE.Scene();
 
 // PerspectiveCamera: fov, aspect, near, far
-const camera = new THREE.PerspectiveCamera(30, getAspect(), 5, 75);
+const camera = new THREE.PerspectiveCamera(30, getAspect(), 15, 75);
 // Move camera back to see the plane
 camera.position.z = 60;
 
@@ -26,6 +27,9 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
+
+// Setup FPS camera for main camera
+setupFPSCamera(camera, document.body);
 
 // Setup FPS counter
 setupFPS();
@@ -59,15 +63,13 @@ function animate(now) {
   // Update Rain Canvas
   updateRain(deltaTime, camera);
 
-  // Camera Animation: 60-degree arc right to left
-  const radius = 20;
-  // Sin wave oscillates between -1 and 1. Multiply by Math.PI / 12 (15 degrees) for a 30 degree total arc
-  const angle = Math.sin(now * 0.0002) * (Math.PI / 12);
-  camera.position.x = Math.sin(angle) * radius;
-  camera.position.z = Math.cos(angle) * radius;
-  // Keep camera slightly elevated
-  camera.position.y = 0;
-  camera.lookAt(0, 0, 0);
+  // Update FPS Camera
+  updateFPSCamera(deltaTime, camera);
+
+  // Make God Camera follow the main camera
+  if (activeCamera === godCamera) {
+    godCamera.lookAt(camera.position);
+  }
 
   updateFrustumDebug();
 
@@ -117,13 +119,13 @@ function toggleHUD() {
 window.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
 
-  if (key === 'd' && !distractionsHidden) {
+  if ((key === '`' || key === '~') && !distractionsHidden) {
     debugVisible = !debugVisible;
     toggleDebug(debugVisible);
     const fpsDiv = document.getElementById('fps-counter');
     if (fpsDiv) fpsDiv.style.visibility = debugVisible ? 'visible' : 'hidden';
 
-    if (debugVisible) {
+    if (activeCamera === godCamera || debugVisible) {
       enableFrustumDebug(scene, camera, getMesh());
     } else {
       disableFrustumDebug(scene);
@@ -132,6 +134,11 @@ window.addEventListener('keydown', (e) => {
 
   if (key === 'g' && !distractionsHidden) {
     activeCamera = activeCamera === camera ? godCamera : camera;
+    if (activeCamera === godCamera || debugVisible) {
+      enableFrustumDebug(scene, camera, getMesh());
+    } else {
+      disableFrustumDebug(scene);
+    }
   }
 
   if (key === 'f') toggleFullscreen();

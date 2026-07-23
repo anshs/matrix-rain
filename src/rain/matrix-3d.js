@@ -6,7 +6,7 @@ import { Trail } from './trails.js';
 
 // Configuration
 const FONT_SIZE = 32;
-const TRAIL_LENGTH = 30; // Length of trail in atlas
+const TRAIL_LENGTH = 30;
 const TRAIL_HEAD_COLOR = '#d0ff00ff';
 const TRAIL_START_COLOR = { r: 50, g: 255, b: 0, a: 1 };
 const TRAIL_END_COLOR = { r: 0, g: 64, b: 0, a: 0 };
@@ -17,18 +17,11 @@ const GLOW_MAX_BLUR = 5;
 const CHAR_WIDTH = 1.0;
 const CHAR_HEIGHT = 1.0;
 const SPACING_Z = 1.0;
-const DEPTHS = 60;
 
-let COLS = 60;
-let ROWS = 60;
-let TOTAL_CELLS = COLS * ROWS * DEPTHS;
-let NUM_TRAILS = 150;
+const NUM_TRAILS = 750;
+const MAX_INSTANCES = NUM_TRAILS * TRAIL_LENGTH;
+const SPAWN_RANGE = 120; // How far around the camera trails spawn
 
-/**
- * Initializes the 3D InstancedMesh for Matrix Rain.
- * @param {THREE.Scene} scene The scene to add the mesh to
- * @param {THREE.Camera} initialCamera The camera for initial sizing
- */
 export function setupRain3D(scene, initialCamera) {
   const atlasCellWidth = FONT_SIZE + GLOW_MAX_BLUR * 2 + 4;
   const atlasCellHeight = FONT_SIZE + GLOW_MAX_BLUR * 2 + 4;
@@ -51,7 +44,6 @@ export function setupRain3D(scene, initialCamera) {
   texture.magFilter = THREE.LinearFilter;
 
   const geometry = new THREE.PlaneGeometry(CHAR_WIDTH, CHAR_HEIGHT);
-
   const material = new THREE.MeshBasicMaterial({
     map: texture,
     transparent: true,
@@ -79,6 +71,9 @@ export function setupRain3D(scene, initialCamera) {
            float atlasY = atlasCells.y - 1.0 - instanceUvInfo.y;
            vMapUv.x = (vMapUv.x * cellX) + (instanceUvInfo.x * cellX);
            vMapUv.y = (vMapUv.y * cellY) + (atlasY * cellY);
+       } else {
+           gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+           return;
        }
       `
     );
@@ -96,89 +91,49 @@ export function setupRain3D(scene, initialCamera) {
     );
   };
 
-  let mesh;
-  let instanceUvInfo;
-  let uvAttribute;
-  let charIndices;
-  let trails = [];
-  let activeInstances = [];
+  // Create an InstancedMesh EXACTLY the size of the maximum visible characters
+  let mesh = new THREE.InstancedMesh(geometry, material, MAX_INSTANCES);
+  mesh.frustumCulled = false;
 
-  const frustum = new THREE.Frustum();
-  const projScreenMatrix = new THREE.Matrix4();
+  const instanceUvInfo = new Float32Array(MAX_INSTANCES * 2);
+  const uvAttribute = new THREE.InstancedBufferAttribute(instanceUvInfo, 2);
+  uvAttribute.setUsage(THREE.DynamicDrawUsage);
+  geometry.setAttribute('instanceUvInfo', uvAttribute);
 
-  function buildGrid(camera) {
-    if (mesh) {
-      scene.remove(mesh);
-      mesh.dispose();
+  // Initialize with hidden state
+  for (let i = 0; i < MAX_INSTANCES; i++) {
+    instanceUvInfo[i * 2 + 0] = 0;
+    instanceUvInfo[i * 2 + 1] = -1;
+  }
+  uvAttribute.needsUpdate = true;
+  scene.add(mesh);
+
+  const dummy = new THREE.Object3D();
+  const trails = [];
+  
+  let globalTime = 0;
+
+  function getCharIndex(cx, cy, cz) {
+    const hash = Math.abs(((cx + 1000000) * 73856093) ^ ((cy + 1000000) * 19349663) ^ ((cz + 1000000) * 83492791));
+    
+    // 20% of characters are "glitchy" and flip in place
+    const flipChance = hash % 100;
+    if (flipChance > 80) {
+      // Each glitchy character flips at a different random interval (between 100ms and 900ms)
+      const flipPeriod = 100 + (hash % 800);
+      const timeOffset = Math.floor(globalTime / flipPeriod);
+      const dynamicHash = hash ^ (timeOffset * 104729);
+      return Math.abs(dynamicHash) % ACTIVE_CHARSET.length;
     }
 
-    // Calculate grid size based on camera frustum at the FARTHEST distance
-    const dist = camera.position.length() || 40;
-    const maxDist = dist + (DEPTHS / 2) * SPACING_Z; // The back of the grid
-    const vFov = (camera.fov * Math.PI) / 180;
-
-    // The frustum is taller and wider the farther away you go.
-    // We must size our grid so that the farthest layer covers the screen!
-    const heightAtBack = 2 * Math.tan(vFov / 2) * maxDist;
-    const widthAtBack = heightAtBack * camera.aspect;
-
-    // Multiply by 1.5 to cover the swinging camera angles
-    COLS = Math.ceil((widthAtBack * 1.5) / CHAR_WIDTH);
-    ROWS = Math.ceil((heightAtBack * 1.5) / CHAR_HEIGHT);
-    TOTAL_CELLS = COLS * ROWS * DEPTHS;
-
-    // Scale trails proportionally
-    NUM_TRAILS = Math.floor((COLS * ROWS) / 20);
-
-    mesh = new THREE.InstancedMesh(geometry, material, TOTAL_CELLS);
-    mesh.frustumCulled = false; // We handle culling logically
-
-    const dummy = new THREE.Object3D();
-    let index = 0;
-    for (let z = 0; z < DEPTHS; z++) {
-      for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS; x++) {
-          const px = (x - COLS / 2) * CHAR_WIDTH;
-          const py = (y - ROWS / 2) * CHAR_HEIGHT;
-          const pz = (z - DEPTHS / 2) * SPACING_Z;
-          dummy.position.set(px, py, pz);
-          dummy.updateMatrix();
-          mesh.setMatrixAt(index++, dummy.matrix);
-        }
-      }
-    }
-
-    instanceUvInfo = new Float32Array(TOTAL_CELLS * 2);
-    uvAttribute = new THREE.InstancedBufferAttribute(instanceUvInfo, 2);
-    uvAttribute.setUsage(THREE.DynamicDrawUsage);
-    geometry.setAttribute('instanceUvInfo', uvAttribute);
-
-    charIndices = new Uint16Array(TOTAL_CELLS);
-    for (let i = 0; i < TOTAL_CELLS; i++) {
-      charIndices[i] = Math.floor(Math.random() * ACTIVE_CHARSET.length);
-      instanceUvInfo[i * 2 + 0] = charIndices[i];
-      instanceUvInfo[i * 2 + 1] = -1;
-    }
-    uvAttribute.needsUpdate = true;
-
-    trails = [];
-    for (let i = 0; i < NUM_TRAILS; i++) {
-      spawnTrail(i);
-    }
-
-    scene.add(mesh);
+    return hash % ACTIVE_CHARSET.length;
   }
 
-  function spawnTrail(index) {
-    // Top of the grid
-    const topOfGrid = (ROWS / 2) * CHAR_HEIGHT;
-    // Spawn between the top of the grid and 1 screen-height above it
-    const startY = topOfGrid + Math.random() * (ROWS * CHAR_HEIGHT);
-
+  function spawnTrail(index, cameraPos) {
     const startPos = new THREE.Vector3(
-      (Math.random() - 0.5) * COLS * CHAR_WIDTH,
-      startY,
-      (Math.random() - 0.5) * DEPTHS * SPACING_Z
+      cameraPos.x + (Math.random() - 0.5) * SPAWN_RANGE,
+      cameraPos.y + (Math.random() - 0.5) * SPAWN_RANGE + (SPAWN_RANGE / 2),
+      cameraPos.z + (Math.random() - 0.5) * SPAWN_RANGE
     );
     const dir = new THREE.Vector3(0, -1, 0);
     const speed = Math.random() * 15 + 10;
@@ -194,69 +149,78 @@ export function setupRain3D(scene, initialCamera) {
     }
   }
 
-  // Initial build
-  buildGrid(initialCamera);
+  // Initial dummy trails
+  for (let i = 0; i < NUM_TRAILS; i++) {
+    spawnTrail(i, initialCamera.position);
+  }
+
+  const frustum = new THREE.Frustum();
+  const projScreenMatrix = new THREE.Matrix4();
+  const sqSpawnRange = SPAWN_RANGE * SPAWN_RANGE;
 
   function update(deltaTime, camera) {
-    // Update frustum for culling
+    globalTime += deltaTime;
+
+    // Calculate Frustum for culling trails
     projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(projScreenMatrix);
 
-    const changeProbability = deltaTime / 500;
-
-    for (let i = 0; i < activeInstances.length; i++) {
-      const idx = activeInstances[i];
-      instanceUvInfo[idx * 2 + 1] = -1;
-      if (Math.random() < changeProbability) {
-        charIndices[idx] = Math.floor(Math.random() * ACTIVE_CHARSET.length);
-      }
-    }
-    activeInstances.length = 0;
+    let instanceCount = 0;
 
     for (let i = 0; i < trails.length; i++) {
       const trail = trails[i];
       trail.update(deltaTime);
 
-      if (trail.position.y < (-ROWS / 2) * CHAR_HEIGHT - trail.length) {
-        spawnTrail(i);
+      // Respawn if trail falls way below camera, or gets left behind horizontally
+      const distSq = trail.position.distanceToSquared(camera.position);
+      if (trail.position.y < camera.position.y - SPAWN_RANGE || distSq > sqSpawnRange * 1.5) {
+        spawnTrail(i, camera.position);
         continue;
       }
 
-      // Frustum Culling Check
-      // Calculate a simple bounding sphere for the trail segment
+      // Check if trail intersects Frustum
       const trailCenter = new THREE.Vector3().addVectors(trail.position, trail.direction.clone().multiplyScalar(-trail.length / 2));
       const sphere = new THREE.Sphere(trailCenter, trail.length / 2 + CHAR_HEIGHT);
-
-      // Only process CPU proximity mapping if the trail is actually visible to the camera!
-      if (!frustum.intersectsSphere(sphere)) {
-        continue; // Skip calculating characters for this trail to save massive CPU performance
-      }
+      if (!frustum.intersectsSphere(sphere)) continue;
 
       const samples = Math.floor(trail.length / CHAR_HEIGHT);
 
       for (let j = 0; j <= samples; j++) {
+        // Prevent exceeding max instances
+        if (instanceCount >= MAX_INSTANCES) break;
+
         const px = trail.position.x - trail.direction.x * (j * CHAR_HEIGHT);
         const py = trail.position.y - trail.direction.y * (j * CHAR_HEIGHT);
         const pz = trail.position.z - trail.direction.z * (j * CHAR_HEIGHT);
 
-        const cx = Math.round(px / CHAR_WIDTH + COLS / 2);
-        const cy = Math.round(py / CHAR_HEIGHT + ROWS / 2);
-        const cz = Math.round(pz / SPACING_Z + DEPTHS / 2);
+        // Snap coordinates to grid for matrix rain aesthetic
+        const snappedX = Math.round(px / CHAR_WIDTH) * CHAR_WIDTH;
+        const snappedY = Math.round(py / CHAR_HEIGHT) * CHAR_HEIGHT;
+        const snappedZ = Math.round(pz / SPACING_Z) * SPACING_Z;
 
-        if (cx >= 0 && cx < COLS && cy >= 0 && cy < ROWS && cz >= 0 && cz < DEPTHS) {
-          const idx = cx + cy * COLS + cz * COLS * ROWS;
-          instanceUvInfo[idx * 2 + 0] = charIndices[idx];
-          instanceUvInfo[idx * 2 + 1] = Math.floor((j / samples) * (TRAIL_LENGTH - 1));
-          activeInstances.push(idx);
-        }
+        dummy.position.set(snappedX, snappedY, snappedZ);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(instanceCount, dummy.matrix);
+
+        // Spatial hash for stable character
+        const worldCx = Math.round(px / CHAR_WIDTH);
+        const worldCy = Math.round(py / CHAR_HEIGHT);
+        const worldCz = Math.round(pz / SPACING_Z);
+
+        instanceUvInfo[instanceCount * 2 + 0] = getCharIndex(worldCx, worldCy, worldCz);
+        instanceUvInfo[instanceCount * 2 + 1] = Math.floor((j / samples) * (TRAIL_LENGTH - 1));
+        
+        instanceCount++;
       }
     }
 
+    mesh.count = instanceCount;
+    mesh.instanceMatrix.needsUpdate = true;
     uvAttribute.needsUpdate = true;
   }
 
   function resize(camera) {
-    buildGrid(camera);
+    // Not needed anymore
   }
 
   return { update, resize, getMesh: () => mesh };

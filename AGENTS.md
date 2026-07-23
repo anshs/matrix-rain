@@ -27,7 +27,8 @@ Learning project — code must be readable and educational, not just functional.
 
 ## Current Milestone
 Milestone 1: CanvasTexture 2D rain on a flat plane — COMPLETED
-Milestone 2: InstancedMesh true 3D rain columns — IN PROGRESS
+Milestone 2: InstancedMesh true 3D rain columns — COMPLETED
+Milestone 3: First-person WASD + mouse-look camera — IN PROGRESS
 ## Code Style
 - ES Modules (import/export), no CommonJS
 - JSDoc comments on every exported function
