@@ -1,11 +1,24 @@
 # Matrix Rain (using Three.js)
 <p>
-  <a href="https://anshs.github.io/matrix-rain/"><kbd>&nbsp; Live Demo &nbsp;</kbd></a> &nbsp;
-  <a href="https://anshs.github.io/matrix-rain/3d/"><kbd>&nbsp; 3D Parallax Rain &nbsp;</kbd></a> &nbsp;
-  <a href="https://anshs.github.io/matrix-rain/2d/"><kbd>&nbsp; 2D Rain &nbsp;</kbd></a> &nbsp;
-  <a href="./devlog/milestone-3.md"><kbd>&nbsp; Devlog &nbsp;</kbd></a>
+  <a href="https://anshs.github.io/matrix-rain/">
+    <img src="https://img.shields.io/badge/▶_Live_Demo-00FF66?style=for-the-badge&labelColor=003311&color=00FF66" alt="Live Demo" />
+  </a>
+  &nbsp;
+  <a href="https://anshs.github.io/matrix-rain/3d/">
+    <img src="https://img.shields.io/badge/3D_Parallax_Rain-22272e?style=for-the-badge&labelColor=1b1f23&color=adbac7" alt="3D Parallax Rain" />
+  </a>
+  &nbsp;
+  <a href="https://anshs.github.io/matrix-rain/2d/">
+    <img src="https://img.shields.io/badge/2D_Rain-22272e?style=for-the-badge&labelColor=1b1f23&color=adbac7" alt="2D Rain" />
+  </a>
+  &nbsp;
+  <a href="./devlog/milestone-3.md">
+    <img src="https://img.shields.io/badge/Devlog-22272e?style=for-the-badge&labelColor=1b1f23&color=adbac7" alt="Devlog" />
+  </a>
 </p>
-![There is no Spoon](./public/matrix-rain-cover.webp)
+
+![There is no Spoon](public/matrix-rain-cover.webp)
+
 
 >“What is real? How do you define real?” — Morpheus, The Matrix
 
