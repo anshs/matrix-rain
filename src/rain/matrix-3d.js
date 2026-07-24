@@ -78,6 +78,30 @@ export function setupRain3D(scene, initialCamera) {
       `
     );
 
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <project_vertex>',
+      `
+       vec4 instanceWorldPos = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+       
+       vec3 toCamera = cameraPosition - instanceWorldPos.xyz;
+       toCamera.y = 0.0;
+       
+       if (length(toCamera) > 0.0001) {
+           toCamera = normalize(toCamera);
+       } else {
+           toCamera = vec3(0.0, 0.0, 1.0);
+       }
+       
+       vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), toCamera));
+       mat3 rot = mat3(right, vec3(0.0, 1.0, 0.0), toCamera);
+       
+       vec3 billboardedPos = rot * transformed;
+       
+       vec4 mvPosition = viewMatrix * vec4(billboardedPos + instanceWorldPos.xyz, 1.0);
+       gl_Position = projectionMatrix * mvPosition;
+      `
+    );
+
     shader.fragmentShader = `
       varying float vVisible;
     ` + shader.fragmentShader;
@@ -110,15 +134,15 @@ export function setupRain3D(scene, initialCamera) {
 
   const dummy = new THREE.Object3D();
   const trails = [];
-  
+
   let globalTime = 0;
 
   function getCharIndex(cx, cy, cz) {
     const hash = Math.abs(((cx + 1000000) * 73856093) ^ ((cy + 1000000) * 19349663) ^ ((cz + 1000000) * 83492791));
-    
+
     // 20% of characters are "glitchy" and flip in place
     const flipChance = hash % 100;
-    if (flipChance > 80) {
+    if (flipChance > 70) {
       // Each glitchy character flips at a different random interval (between 100ms and 900ms)
       const flipPeriod = 100 + (hash % 800);
       const timeOffset = Math.floor(globalTime / flipPeriod);
@@ -209,7 +233,7 @@ export function setupRain3D(scene, initialCamera) {
 
         instanceUvInfo[instanceCount * 2 + 0] = getCharIndex(worldCx, worldCy, worldCz);
         instanceUvInfo[instanceCount * 2 + 1] = Math.floor((j / samples) * (TRAIL_LENGTH - 1));
-        
+
         instanceCount++;
       }
     }

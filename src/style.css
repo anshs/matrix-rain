@@ -18,7 +18,7 @@ canvas {
   transform: translateX(-50%);
   color: #0F0;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.85rem;
+  font-size: 0.9em;
   opacity: 0.3;
   transition: opacity 0.3s ease, color 0.3s ease;
   z-index: 10;
@@ -61,14 +61,15 @@ canvas {
 }
 
 .help-modal-content {
+  box-sizing: border-box;
   background-color: #050505;
   border: 2px solid #0F0;
   box-shadow: 0 0 15px rgba(0, 255, 0, 0.5), inset 0 0 10px rgba(0, 255, 0, 0.2);
   color: #0F0;
   font-family: 'Courier New', Courier, monospace;
-  padding: 2rem;
-  max-width: 90%;
-  width: 400px;
+  padding: 1.5rem;
+  width: calc(100% - 40px);
+  max-width: 400px;
   text-align: center;
   border-radius: 4px;
 }
@@ -113,4 +114,71 @@ canvas {
   background-color: rgba(0, 255, 0, 0.2);
   box-shadow: 0 0 15px rgba(0, 255, 0, 0.8);
   text-shadow: 0 0 5px #0F0;
+}
+
+/* Mobile Controls */
+#joystick-base {
+  position: fixed;
+  width: 100px;
+  height: 100px;
+  border-radius: 12px;
+  background: rgba(0, 255, 0, 0.1);
+  border: 2px solid rgba(0, 255, 0, 0.5);
+  display: none;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+#joystick-stick {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: rgba(0, 255, 0, 0.6);
+  top: 30px;
+  left: 30px;
+  pointer-events: none;
+}
+
+#mobile-guide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  z-index: 2000;
+  pointer-events: none;
+  transition: opacity 1s ease-out;
+  color: #0f0;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.guide-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 20, 0, 0.7);
+}
+
+.left-half {
+  border-right: 1px dashed rgba(0, 255, 0, 0.5);
+}
+
+.guide-svg {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 0 10px #0F0);
+}
+
+.guide-half p {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+  max-width: 80%;
+  text-shadow: 0 0 10px #0f0;
 }

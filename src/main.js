@@ -5,6 +5,7 @@ import { debug, toggleDebug } from './utils/debug.js';
 import { getAspect, onResize } from './utils/viewport.js';
 import { enableFrustumDebug, disableFrustumDebug, updateFrustumDebug } from './utils/debug-frustum.js';
 import { setupFPSCamera, updateFPSCamera } from './utils/fps-camera.js';
+import { setupMobileControls } from './utils/mobile-controls.js';
 import './style.css';
 
 // Scene, Camera, Renderer Setup
@@ -30,6 +31,9 @@ document.body.appendChild(renderer.domElement);
 
 // Setup FPS camera for main camera
 setupFPSCamera(camera, document.body);
+
+// Setup Mobile Controls (will only activate if touch is supported)
+setupMobileControls();
 
 // Setup FPS counter
 setupFPS();
@@ -181,12 +185,12 @@ window.addEventListener('touchend', () => clearTimeout(longPressTimer));
 window.addEventListener('touchmove', () => clearTimeout(longPressTimer));
 
 /* ========= UI & MODAL LOGIC ========= */
-const DEVLOG_URL = '#'; // Update this to actual devlog URL when ready
+const DEVLOG_URL = 'https://anshulsharma.org/posts/matrix-rain/';
 
 const devlogFooter = document.getElementById('devlog-link-footer');
 const devlogModal = document.getElementById('devlog-link-modal');
-if (devlogFooter) devlogFooter.href = DEVLOG_URL;
-if (devlogModal) devlogModal.href = DEVLOG_URL;
+if (devlogFooter && !devlogFooter.getAttribute('href')) devlogFooter.href = DEVLOG_URL;
+if (devlogModal && !devlogModal.getAttribute('href')) devlogModal.href = DEVLOG_URL;
 
 const helpModal = document.getElementById('help-modal');
 const helpToggle = document.getElementById('help-toggle');

@@ -39,6 +39,35 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      
+      - name: Checkout 2D Branch
+        uses: actions/checkout@v4
+        with:
+          ref: matrix-rain-2d
+          path: branch-2d
+      - name: Build 2D Branch
+        run: |
+          cd branch-2d
+          npm ci
+          npx vite build --base=/matrix-rain/2d/
+          mkdir -p ../dist/2d
+          cp -r dist/* ../dist/2d/
+          cd ..
+
+      - name: Checkout 3D Parallax Branch
+        uses: actions/checkout@v4
+        with:
+          ref: matrix-rain-3d-parallax
+          path: branch-3d
+      - name: Build 3D Parallax Branch
+        run: |
+          cd branch-3d
+          npm ci
+          npx vite build --base=/matrix-rain/3d/
+          mkdir -p ../dist/3d
+          cp -r dist/* ../dist/3d/
+          cd ..
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
